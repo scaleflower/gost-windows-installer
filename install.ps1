@@ -129,10 +129,25 @@ function Get-LatestGostVersion {
         Write-ColorOutput "正在获取 GOST 最新版本信息..." "Cyan"
         $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
         $response = Invoke-RestMethod -Uri $apiUrl -Headers @{"Accept"="application/vnd.github.v3+json"}
-        return @{
+
+        # 确保返回正确结构
+        $result = @{
             Tag = $response.tag_name
-            Assets = $response.assets
+            Assets = @()
         }
+
+        # 处理 assets 数组
+        if ($response.assets) {
+            foreach ($asset in $response.assets) {
+                $result.Assets += @{
+                    name = $asset.name
+                    browser_download_url = $asset.browser_download_url
+                }
+            }
+        }
+
+        Write-ColorOutput "获取到 $($result.Assets.Count) 个发布文件" "Gray"
+        return $result
     } catch {
         Write-ColorOutput "获取版本信息失败: $_" "Red"
         return $null
@@ -147,16 +162,25 @@ function Download-Gost {
     )
 
     $zipPattern = "gost.*windows_$Architecture.*\.zip"
+    Write-ColorOutput "匹配模式: $zipPattern" "Gray"
 
     foreach ($asset in $Version.Assets) {
+        Write-ColorOutput "  检查文件: $($asset.name)" "Gray"
         if ($asset.name -match $zipPattern) {
             $downloadUrl = $asset.browser_download_url
+            Write-ColorOutput "  找到匹配: $($asset.name)" "Green"
             break
         }
     }
 
     if (-not $downloadUrl) {
         Write-ColorOutput "未找到匹配 Windows $Architecture 的版本" "Red"
+        Write-ColorOutput "可用文件:" "Yellow"
+        foreach ($asset in $Version.Assets) {
+            if ($asset.name -match "windows") {
+                Write-Host "  - $($asset.name)" -ForegroundColor Gray
+            }
+        }
         return $null
     }
 
