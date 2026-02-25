@@ -6,27 +6,32 @@
 
 setlocal
 
-echo ========================================
 :: 检查管理员权限
 net session >nul 2>&1
 if %errorLevel% neq 0 (
+    echo ========================================
     echo [错误] 请以管理员身份运行此脚本!
     echo 右键点击脚本，选择"以管理员身份运行"
+    echo ========================================
     pause
     exit /b 1
 )
 
 echo.
-echo 正在启动 GOST 安装程序...
+echo ========================================
+echo   GOST Windows 安装程序
+echo ========================================
+echo.
+echo 正在启动安装程序...
 echo.
 
-:: 执行 PowerShell 安装脚本
-PowerShell -ExecutionPolicy Bypass -NoProfile -File "%~dp0install.ps1"
+:: 执行 PowerShell 安装脚本（使用 install-en.ps1）
+PowerShell -ExecutionPolicy Bypass -NoProfile -File "%~dp0install-en.ps1"
 
 if %errorLevel% equ 0 (
     echo.
     echo ========================================
-    echo   安装成功!
+    echo   安装完成!
     echo ========================================
 ) else (
     echo.
