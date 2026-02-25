@@ -1,0 +1,13 @@
+{
+  "name": "GOST API Manage",
+  "short_name": "GOST API Manage",
+  "start_url": "./",
+  "display": "standalone",
+  "description": "gostv3 在线管理程序",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "200x200"
+    }
+  ]
+}

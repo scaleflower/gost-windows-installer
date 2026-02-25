@@ -1,0 +1,19 @@
+# External Dependencies
+# 下载时间: 2025-02-25
+
+## GOST
+- 版本: v3.2.6
+- 仓库: https://github.com/go-gost/gost
+- 源码目录: gost/
+- Release 文件:
+  * gost_3.2.6_linux_amd64.tar.gz
+  * gost_3.2.6_linux_386.tar.gz
+  * gost_3.2.6_linux_arm64.tar.gz
+  * gost_3.2.6_windows_amd64.zip
+  * gost_3.2.6_windows_386.zip
+  * gost_3.2.6_windows_arm64.zip
+
+## gost-ui
+- 版本: master (latest)
+- 仓库: https://github.com/go-gost/gost-ui
+- 源码目录: gost-ui/
