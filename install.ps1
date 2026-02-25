@@ -203,7 +203,7 @@ function Download-Gost {
     $zipFile = "$DOWNLOAD_DIR\gost.zip"
 
     try {
-        Write-ColorOutput "正在下载 GOST $($Version.Tag)..." "Cyan"
+        Write-ColorOutput "正在下载 GOST $($Version.tag_name)..." "Cyan"
         Write-ColorOutput "下载地址: $downloadUrl" "Gray"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -UseBasicParsing
         return $zipFile
