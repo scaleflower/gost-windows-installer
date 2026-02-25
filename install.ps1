@@ -59,14 +59,66 @@ function Show-InstallMenu {
 
 # 检测系统架构
 function Get-SystemArchitecture {
-    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
-    switch ($arch) {
-        "X64"   { return "amd64" }
-        "Arm64" { return "arm64" }
-        "X86"   { return "386" }
+    # 获取处理器架构
+    $processorArch = $env:PROCESSOR_ARCHITECTURE
+    $archW64 = $env:PROCESSOR_ARCHITEW6432
+
+    Write-ColorOutput "检测系统信息..." "Cyan"
+    Write-ColorOutput "  PROCESSOR_ARCHITECTURE: $processorArch" "Gray"
+    Write-ColorOutput "  PROCESSOR_ARCHITEW6432: $archW64" "Gray"
+
+    # 判断架构
+    if ($archW64) {
+        # 64位系统上的32位进程
+        Write-ColorOutput "  检测结果: amd64 (通过 WoW64)" "Green"
+        return "amd64"
+    }
+
+    switch ($processorArch) {
+        "AMD64" {
+            Write-ColorOutput "  检测结果: amd64" "Green"
+            return "amd64"
+        }
+        "IA64" {
+            Write-ColorOutput "  检测结果: amd64" "Green"
+            return "amd64"
+        }
+        "x86" {
+            Write-ColorOutput "  检测结果: 386" "Green"
+            return "386"
+        }
+        "ARM64" {
+            Write-ColorOutput "  检测结果: arm64" "Green"
+            return "arm64"
+        }
         default {
-            Write-ColorOutput "不支持的系统架构: $arch" "Red"
-            return $null
+            # 尝试使用 RuntimeInformation
+            try {
+                $runtimeArch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+                Write-ColorOutput "  RuntimeArchitecture: $runtimeArch" "Gray"
+
+                switch ($runtimeArch) {
+                    "X64" {
+                        Write-ColorOutput "  检测结果: amd64" "Green"
+                        return "amd64"
+                    }
+                    "Arm64" {
+                        Write-ColorOutput "  检测结果: arm64" "Green"
+                        return "arm64"
+                    }
+                    "X86" {
+                        Write-ColorOutput "  检测结果: 386" "Green"
+                        return "386"
+                    }
+                    default {
+                        Write-ColorOutput "不支持的系统架构: $runtimeArch" "Red"
+                        return $null
+                    }
+                }
+            } catch {
+                Write-ColorOutput "无法检测系统架构" "Red"
+                return $null
+            }
         }
     }
 }
