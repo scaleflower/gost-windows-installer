@@ -14,6 +14,124 @@ $DOWNLOAD_DIR = "$env:TEMP\gost_install"
 $SERVICE_NAME = "GostForward"
 $LOG_FILE = "$env:TEMP\gost-install_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 
+# Detect system language (Chinese or English)
+$systemLang = (Get-Culture).TwoLetterISOLanguageName
+$IsChineseSystem = ($systemLang -eq "zh") -or ($systemLang -eq "zh-CN") -or ($systemLang -eq "zh-TW")
+
+# Localization strings
+$Strings = @{
+    # Common
+    Back = if ($IsChineseSystem) { "返回" } else { "Back" }
+    Continue = if ($IsChineseSystem) { "继续" } else { "Continue" }
+    Yes = if ($IsChineseSystem) { "是" } else { "Yes" }
+    No = if ($IsChineseSystem) { "否" } else { "No" }
+
+    # Main Menu
+    MainTitle = if ($IsChineseSystem) { "GOST Windows 安装程序" } else { "GOST Windows Installer" }
+    SelectOption = if ($IsChineseSystem) { "选择操作:" } else { "Select an option:" }
+    OptInstall = if ($IsChineseSystem) { "1. 安装 GOST" } else { "1. Install GOST" }
+    OptUninstall = if ($IsChineseSystem) { "2. 卸载 GOST" } else { "2. Uninstall GOST" }
+    OptUpdate = if ($IsChineseSystem) { "3. 检查更新" } else { "3. Check Update" }
+    OptViewLog = if ($IsChineseSystem) { "4. 查看日志" } else { "4. View Log" }
+    OptExit = if ($IsChineseSystem) { "5. 退出" } else { "5. Exit" }
+    EnterOption = if ($IsChineseSystem) { "输入选项 (1-5): " } else { "Enter option (1-5): " }
+
+    # Install Menu
+    InstallTitle = if ($IsChineseSystem) { "安装选项" } else { "Installation Options" }
+    SelectInstallType = if ($IsChineseSystem) { "选择安装类型:" } else { "Select installation type:" }
+    OptFullInstall = if ($IsChineseSystem) { "1. 完整安装 (下载 + 服务)" } else { "1. Full Install (Download + Service)" }
+    OptServiceOnly = if ($IsChineseSystem) { "2. 仅安装服务 (使用已有文件)" } else { "2. Service Only (Use existing files)" }
+    OptBackToMain = if ($IsChineseSystem) { "3. 返回主菜单" } else { "3. Back to Main Menu" }
+    EnterOption_3 = if ($IsChineseSystem) { "输入选项 (1-3): " } else { "Enter option (1-3): " }
+
+    # Installation
+    InstallingTitle = if ($IsChineseSystem) { "正在安装 GOST" } else { "Installing GOST" }
+    InstallComplete = if ($IsChineseSystem) { "安装完成!" } else { "Installation Complete!" }
+    FetchingVersion = if ($IsChineseSystem) { "正在获取最新 GOST 版本..." } else { "Fetching latest GOST version..." }
+    LatestVersion = if ($IsChineseSystem) { "最新版本: " } else { "Latest version: " }
+    DetectingSystem = if ($IsChineseSystem) { "正在检测系统..." } else { "Detecting system..." }
+    Downloading = if ($IsChineseSystem) { "正在下载 GOST " } else { "Downloading GOST " }
+    DownloadCompleted = if ($IsChineseSystem) { "下载完成" } else { "Download completed" }
+    ExtractingFiles = if ($IsChineseSystem) { "正在解压文件..." } else { "Extracting files..." }
+    InstalledTo = if ($IsChineseSystem) { "已安装到: " } else { "Installed to: " }
+    ConfigCreated = if ($IsChineseSystem) { "配置文件已创建: " } else { "Config file created: " }
+    FirewallAdded = if ($IsChineseSystem) { "防火墙规则已添加: TCP 端口 " } else { "Firewall rule added: TCP port " }
+    AddedToPath = if ($IsChineseSystem) { "已添加到系统 PATH: " } else { "Added to system PATH: " }
+    InstallAsService = if ($IsChineseSystem) { "`n是否安装为 Windows 服务? (Y/N)" } else { "`nInstall as Windows service? (Y/N)" }
+    StartServiceNow = if ($IsChineseSystem) { "`n现在启动服务? (Y/N)" } else { "`nStart service now? (Y/N)" }
+    ServiceStarted = if ($IsChineseSystem) { "服务已启动" } else { "Service started" }
+    ServiceInstalled = if ($IsChineseSystem) { "服务已安装: " } else { "Service installed: " }
+    PressAnyKey = if ($IsChineseSystem) { "`n按任意键返回..." } else { "`nPress any key to return..." }
+
+    # Uninstall
+    UninstallingTitle = if ($IsChineseSystem) { "正在卸载 GOST" } else { "Uninstalling GOST" }
+    UninstallComplete = if ($IsChineseSystem) { "卸载完成!" } else { "Uninstall Complete!" }
+    UninstallWarning = if ($IsChineseSystem) { "警告: 这将删除 GOST 和配置文件" } else { "Warning: This will remove GOST and configurations" }
+    ContinueQuestion = if ($IsChineseSystem) { "`n继续? (Y/N)" } else { "`nContinue? (Y/N)" }
+    Cancelled = if ($IsChineseSystem) { "已取消" } else { "Cancelled" }
+    StoppingService = if ($IsChineseSystem) { "正在停止服务..." } else { "Stopping service..." }
+    ServiceRemoved = if ($IsChineseSystem) { "服务已删除" } else { "Service removed" }
+    RemovingFirewall = if ($IsChineseSystem) { "正在删除防火墙规则..." } else { "Removing firewall rules..." }
+    FirewallRemoved = if ($IsChineseSystem) { "防火墙规则已删除" } else { "Firewall rules removed" }
+    RemovingInstallDir = if ($IsChineseSystem) { "正在删除安装目录: " } else { "Removing install directory: " }
+    KeepConfig = if ($IsChineseSystem) { "`n保留配置文件? (Y/N)" } else { "`nKeep config file? (Y/N)" }
+    ConfigBackedUp = if ($IsChineseSystem) { "配置已备份到: " } else { "Config backed up to: " }
+    InstallDirRemoved = if ($IsChineseSystem) { "安装目录已删除" } else { "Install directory removed" }
+    RemovedFromPath = if ($IsChineseSystem) { "已从系统 PATH 移除: " } else { "Removed from system PATH: " }
+
+    # Update
+    UpdateTitle = if ($IsChineseSystem) { "检查更新" } else { "Check Update" }
+    CurrentVersion = if ($IsChineseSystem) { "当前版本: " } else { "Current version: " }
+    CannotDetectVersion = if ($IsChineseSystem) { "无法检测当前版本" } else { "Cannot detect current version" }
+    GostNotInstalled = if ($IsChineseSystem) { "GOST 未安装" } else { "GOST not installed" }
+    AlreadyUpToDate = if ($IsChineseSystem) { "`n已是最新版本!" } else { "`nAlready up to date!" }
+    NewVersionAvailable = if ($IsChineseSystem) { "`n发现新版本!" } else { "`nNew version available!" }
+    CurrentToLatest = if ($IsChineseSystem) { "当前: {0} -> 最新: {1}" } else { "Current: {0} -> Latest: {1}" }
+    UpdateNow = if ($IsChineseSystem) { "`n现在更新? (Y/N)" } else { "`nUpdate now? (Y/N)" }
+    Updating = if ($IsChineseSystem) { "`n正在更新..." } else { "`nUpdating..." }
+    BackingUpTo = if ($IsChineseSystem) { "正在备份到: " } else { "Backing up to: " }
+    InstallingNewVersion = if ($IsChineseSystem) { "正在安装新版本..." } else { "Installing new version..." }
+    UpdateComplete = if ($IsChineseSystem) { "更新完成!" } else { "Update complete!" }
+    BackupLocation = if ($IsChineseSystem) { "备份位置: " } else { "Backup location: " }
+    RestartingService = if ($IsChineseSystem) { "正在重启服务..." } else { "Restarting service..." }
+    ServiceRestarted = if ($IsChineseSystem) { "服务已重启" } else { "Service restarted" }
+    NewVersion = if ($IsChineseSystem) { "新版本: " } else { "New version: " }
+
+    # View Log
+    ViewLogTitle = if ($IsChineseSystem) { "查看日志文件" } else { "View Log File" }
+    NoLogFiles = if ($IsChineseSystem) { "未找到日志文件" } else { "No log files found" }
+    CurrentLogFile = if ($IsChineseSystem) { "当前日志文件: " } else { "Current log file: " }
+    FoundLogFiles = if ($IsChineseSystem) { "找到 {0} 个日志文件:`n" } else { "Found {0} log file(s):`n" }
+    Opening = if ($IsChineseSystem) { "正在打开: " } else { "Opening: " }
+    LogContent = if ($IsChineseSystem) { "`n========== 内容: {0} ==========`n" } else { "`n========== Content of {0} ==========`n" }
+    EndOfLog = if ($IsChineseSystem) { "`n========== 日志结束 (显示最后 50 行) ==========" } else { "`n========== End of log (showing last 50 lines) ==========" }
+
+    # Defender
+    DefenderTitle = if ($IsChineseSystem) { "Windows Defender 检测" } else { "Windows Defender Detection" }
+    DefenderActive = if ($IsChineseSystem) { "Windows Defender 实时保护已启用" } else { "Windows Defender real-time protection is ACTIVE" }
+    DefenderInterfere = if ($IsChineseSystem) { "这可能会干扰安装 (阻止下载、API 调用等)" } else { "This may interfere with installation (block downloads, API calls, etc.)" }
+    DisableDefender = if ($IsChineseSystem) { "`n是否临时禁用 Defender? (Y/N)" } else { "`nDisable Defender temporarily? (Y/N)" }
+    DisablingDefender = if ($IsChineseSystem) { "正在禁用 Windows Defender 实时保护..." } else { "Disabling Windows Defender real-time protection..." }
+    DefenderDisabled = if ($IsChineseSystem) { "Windows Defender 实时保护已禁用" } else { "Windows Defender real-time protection DISABLED" }
+    DefenderAlreadyDisabled = if ($IsChineseSystem) { "Windows Defender 实时监控已被禁用" } else { "Windows Defender real-time monitoring is already disabled" }
+    WillRestoreAfter = if ($IsChineseSystem) { "安装完成后会自动恢复" } else { "It will be re-enabled after installation completes" }
+    KeepingDefender = if ($IsChineseSystem) { "保持 Defender 启用 (安装可能会失败)" } else { "Keeping Defender enabled (installation may fail)" }
+    ReEnablingDefender = if ($IsChineseSystem) { "正在重新启用 Windows Defender 实时保护..." } else { "Re-enabling Windows Defender real-time protection..." }
+    DefenderEnabled = if ($IsChineseSystem) { "Windows Defender 实时保护已启用" } else { "Windows Defender real-time protection ENABLED" }
+
+    # Error messages
+    Error = if ($IsChineseSystem) { "错误" } else { "Error" }
+    Failed = if ($IsChineseSystem) { "失败" } else { "Failed" }
+    NotFound = if ($IsChineseSystem) { "未找到" } else { "not found" }
+    InvalidOption = if ($IsChineseSystem) { "`n无效选项" } else { "`nInvalid option" }
+    Goodbye = if ($IsChineseSystem) { "`n再见!" } else { "`nGoodbye!" }
+
+    # Service
+    StartService = if ($IsChineseSystem) { "启动: net start {0}" } else { "Start: net start {0}" }
+    StopService = if ($IsChineseSystem) { "停止: net stop {0}" } else { "Stop: net stop {0}" }
+    ServiceCommands = if ($IsChineseSystem) { "服务命令:" } else { "Service commands:" }
+}
+
 # Initialize log
 function Initialize-Log {
     $logDir = Split-Path -Parent $LOG_FILE
@@ -111,18 +229,18 @@ function Test-DefenderStatus {
 function Show-MainMenu {
     Clear-Host
     Write-ColorOutput "`n========================================" "Cyan"
-    Write-ColorOutput "      GOST Windows Installer" "Cyan"
+    Write-ColorOutput $("      {0}" -f $Strings.MainTitle) "Cyan"
     Write-ColorOutput "========================================`n" "Cyan"
 
-    Write-ColorOutput "Select an option:" "Yellow"
-    Write-Host "  1. Install GOST"
-    Write-Host "  2. Uninstall GOST"
-    Write-Host "  3. Check Update"
-    Write-Host "  4. View Log"
-    Write-Host "  5. Exit"
+    Write-ColorOutput $Strings.SelectOption "Yellow"
+    Write-Host $Strings.OptInstall
+    Write-Host $Strings.OptUninstall
+    Write-Host $Strings.OptUpdate
+    Write-Host $Strings.OptViewLog
+    Write-Host $Strings.OptExit
     Write-Host ""
 
-    $choice = Read-Host "Enter option (1-5)"
+    $choice = Read-Host $Strings.EnterOption
     return $choice
 }
 
@@ -130,16 +248,16 @@ function Show-MainMenu {
 function Show-InstallMenu {
     Clear-Host
     Write-ColorOutput "`n========================================" "Cyan"
-    Write-ColorOutput "        Installation Options" "Cyan"
+    Write-ColorOutput $("        {0}" -f $Strings.InstallTitle) "Cyan"
     Write-ColorOutput "========================================`n" "Cyan"
 
-    Write-ColorOutput "Select installation type:" "Yellow"
-    Write-Host "  1. Full Install (Download + Service)"
-    Write-Host "  2. Service Only (Use existing files)"
-    Write-Host "  3. Back to Main Menu"
+    Write-ColorOutput $Strings.SelectInstallType "Yellow"
+    Write-Host $Strings.OptFullInstall
+    Write-Host $Strings.OptServiceOnly
+    Write-Host $Strings.OptBackToMain
     Write-Host ""
 
-    $choice = Read-Host "Enter option (1-3)"
+    $choice = Read-Host $Strings.EnterOption_3
     return $choice
 }
 
@@ -148,7 +266,7 @@ function Get-SystemArchitecture {
     $processorArch = $env:PROCESSOR_ARCHITECTURE
     $archW64 = $env:PROCESSOR_ARCHITEW6432
 
-    Write-ColorOutput "Detecting system..." "Cyan"
+    Write-ColorOutput $Strings.DetectingSystem "Cyan"
     Write-ColorOutput "  PROCESSOR_ARCHITECTURE: $processorArch" "Gray"
 
     if ($archW64) {
@@ -179,7 +297,7 @@ function Get-SystemArchitecture {
 # Get latest version info
 function Get-LatestGostVersion {
     try {
-        Write-ColorOutput "Fetching latest GOST version..." "Cyan"
+        Write-ColorOutput $Strings.FetchingVersion "Cyan"
         Write-DebugLog "Get-LatestGostVersion: Starting"
         $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
         Write-DebugLog "API URL: $apiUrl"
@@ -203,7 +321,7 @@ function Get-LatestGostVersion {
             return $null
         }
 
-        Write-ColorOutput "Latest version: $versionTag" "Green"
+        Write-ColorOutput "$($Strings.LatestVersion)$versionTag" "Green"
         return $response
     } catch {
         Write-ColorOutput "Failed to get version info: $_" "Red"
