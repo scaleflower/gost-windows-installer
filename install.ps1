@@ -146,7 +146,7 @@ function Download-Gost {
         [string]$Architecture
     )
 
-    $zipPattern = "gost.*windows-$Architecture.*\.zip"
+    $zipPattern = "gost.*windows_$Architecture.*\.zip"
 
     foreach ($asset in $Version.Assets) {
         if ($asset.name -match $zipPattern) {
