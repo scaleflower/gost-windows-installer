@@ -15,12 +15,21 @@
 
 ## 快速开始
 
-### Windows 安装
+### 一键安装（推荐）
 
-#### 方式一：双击运行（推荐）
+以管理员身份打开 PowerShell，粘贴以下命令即可一键下载并安装：
 
-1. 右键点击 `install.bat`，选择「以管理员身份运行」
-2. 按照提示完成安装
+```powershell
+irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 | iex
+```
+
+### 本地安装
+
+#### 方式一：双击运行
+
+1. 下载本仓库的 `install.bat`
+2. 右键点击，选择「以管理员身份运行」
+3. 按照提示完成安装
 
 #### 方式二：PowerShell 运行
 
