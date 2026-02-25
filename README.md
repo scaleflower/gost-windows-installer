@@ -17,30 +17,24 @@
 
 ### 方式一：交互式菜单（推荐）
 
-以管理员身份打开 PowerShell，运行脚本后通过菜单选择操作：
+以管理员身份打开 PowerShell，执行以下命令：
 
 ```powershell
-# 从 GitHub 直接运行
-irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 | iex
+# 下载并运行
+irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 -OutFile $env:TEMP\install.ps1; PowerShell -ExecutionPolicy Bypass -File $env:TEMP\install.ps1
 ```
 
-运行后会显示菜单：
+### 方式二：分步执行
 
-```
-========================================
-      GOST Windows 安装程序
-========================================
+```powershell
+# 1. 下载脚本
+irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 -OutFile $env:TEMP\install.ps1
 
-请选择操作:
-  1. 安装 GOST
-  2. 卸载 GOST
-  3. 检查更新
-  4. 退出
-
-请输入选项 (1-4):
+# 2. 运行脚本
+PowerShell -ExecutionPolicy Bypass -File $env:TEMP\install.ps1
 ```
 
-### 方式二：命令行参数
+### 方式三：命令行参数
 
 ```powershell
 # 下载脚本
