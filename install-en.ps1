@@ -52,10 +52,11 @@ function Show-MainMenu {
     Write-Host "  1. Install GOST"
     Write-Host "  2. Uninstall GOST"
     Write-Host "  3. Check Update"
-    Write-Host "  4. Exit"
+    Write-Host "  4. View Log"
+    Write-Host "  5. Exit"
     Write-Host ""
 
-    $choice = Read-Host "Enter option (1-4)"
+    $choice = Read-Host "Enter option (1-5)"
     return $choice
 }
 
@@ -624,6 +625,63 @@ function Check-Update {
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
+# View log file
+function View-Log {
+    Clear-Host
+    Write-ColorOutput "`n========================================" "Cyan"
+    Write-ColorOutput "      View Log File" "Cyan"
+    Write-ColorOutput "========================================`n" "Cyan"
+
+    # Find all log files
+    $logDir = [System.IO.Path]::GetTempPath()
+    $logFiles = Get-ChildItem -Path $logDir -Filter "gost-install_*.log" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending
+
+    if (-not $logFiles -or $logFiles.Count -eq 0) {
+        Write-ColorOutput "No log files found" "Yellow"
+        Write-ColorOutput "Current log file: $LOG_FILE" "Gray"
+    } else {
+        Write-ColorOutput "Found $($logFiles.Count) log file(s):`n" "Cyan"
+        for ($i = 0; $i -lt $logFiles.Count; $i++) {
+            $file = $logFiles[$i]
+            $size = [math]::Round($file.Length / 1KB, 1)
+            Write-Host "  [$($i+1)] " -NoNewline -ForegroundColor Cyan
+            Write-Host "$($file.Name) " -NoNewline
+            Write-Host "($size KB, $($file.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')))" -ForegroundColor Gray
+        }
+
+        Write-Host "`n[0] Open current log file in notepad"
+        Write-Host "[L] List all logs in full text"
+        Write-Host ""
+
+        $selection = Read-Host "Select log file to view (1-$($logFiles.Count), 0 for notepad, L to list, or Enter to return)"
+
+        if ($selection -eq "0") {
+            # Open current log in notepad
+            if (Test-Path $LOG_FILE) {
+                notepad.exe $LOG_FILE
+            } else {
+                Write-ColorOutput "Current log file not found yet" "Yellow"
+            }
+        } elseif ($selection -eq "L" -or $selection -eq "l") {
+            # Show most recent log content
+            $latestLog = $logFiles[0].FullName
+            Write-ColorOutput "`n========== Content of $($logFiles[0].Name) ==========`n" "Cyan"
+            Get-Content -Path $latestLog -Tail 50
+            Write-ColorOutput "`n========== End of log (showing last 50 lines) ==========" "Cyan"
+        } elseif ($selection -match "^\d+$" -and [int]$selection -ge 1 -and [int]$selection -le $logFiles.Count) {
+            # Open selected log in notepad
+            $selectedFile = $logFiles([int]$selection - 1).FullName
+            Write-ColorOutput "Opening: $($logFiles[([int]$selection - 1)].Name)" "Cyan"
+            notepad.exe $selectedFile
+        }
+    }
+
+    if ($selection -ne "0" -and $selection -notmatch "^\d+$") {
+        Write-ColorOutput "`nPress any key to return..." "Yellow"
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
+}
+
 # =============================================================================
 # Main
 # =============================================================================
@@ -669,6 +727,9 @@ do {
             Check-Update
         }
         "4" {
+            View-Log
+        }
+        "5" {
             Write-ColorOutput "`nGoodbye!" "Green"
             return
         }
