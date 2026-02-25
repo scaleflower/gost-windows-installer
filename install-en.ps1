@@ -41,6 +41,72 @@ function Write-DebugLog {
     Add-Content -Path $LOG_FILE -Value "[$timestamp] DEBUG: $Message"
 }
 
+# Disable Windows Defender Real-time Protection temporarily
+function Disable-DefenderTemp {
+    try {
+        Write-ColorOutput "`n========================================" "Yellow"
+        Write-ColorOutput "  Windows Defender Detection" "Yellow"
+        Write-ColorOutput "========================================`n" "Yellow"
+
+        # Check if Defender is active
+        $defenderEnabled = $null
+        try {
+            $defenderEnabled = Get-MpPreference | Select-Object -ExpandProperty DisableRealtimeMonitoring
+        } catch {
+            Write-ColorOutput "Cannot check Defender status (may be disabled by policy)" "Yellow"
+            return $false
+        }
+
+        if (-not $defenderEnabled) {
+            Write-ColorOutput "Windows Defender real-time monitoring is already disabled" "Green"
+            return $false
+        }
+
+        Write-ColorOutput "Windows Defender real-time protection is ACTIVE" "Red"
+        Write-ColorOutput "This may interfere with installation (block downloads, API calls, etc.)" "Yellow"
+        Write-Host ""
+        Write-ColorOutput "Disable Defender temporarily? (Y/N)" "Yellow"
+        $disable = Read-Host
+
+        if ($disable -eq "Y" -or $disable -eq "y") {
+            Write-ColorOutput "Disabling Windows Defender real-time protection..." "Cyan"
+            Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Windows Defender real-time protection DISABLED" "Green"
+            Write-ColorOutput "It will be re-enabled after installation completes" "Yellow"
+            return $true
+        } else {
+            Write-ColorOutput "Keeping Defender enabled (installation may fail)" "Yellow"
+            return $false
+        }
+    } catch {
+        Write-ColorOutput "Failed to disable Defender: $_" "Red"
+        Write-ColorOutput "You may need to disable it manually" "Yellow"
+        return $false
+    }
+}
+
+# Enable Windows Defender Real-time Protection
+function Enable-Defender {
+    try {
+        Write-ColorOutput "Re-enabling Windows Defender real-time protection..." "Cyan"
+        Set-MpPreference -DisableRealtimeMonitoring $false -ErrorAction SilentlyContinue
+        Write-ColorOutput "Windows Defender real-time protection ENABLED" "Green"
+    } catch {
+        Write-ColorOutput "Note: Please manually verify Defender is enabled" "Yellow"
+    }
+}
+
+# Check Windows Defender status
+function Test-DefenderStatus {
+    try {
+        $preference = Get-MpPreference -ErrorAction Stop
+        return -not $preference.DisableRealtimeMonitoring
+    } catch {
+        return $null
+    }
+}
+
 # Show main menu
 function Show-MainMenu {
     Clear-Host
@@ -356,8 +422,15 @@ function Install-Full {
     Write-ColorOutput "      Installing GOST" "Cyan"
     Write-ColorOutput "========================================`n" "Cyan"
 
-    Write-DebugLog "Install-Full: Starting installation process"
-    $versionInfo = Get-LatestGostVersion
+    # Check and optionally disable Windows Defender
+    $defenderWasDisabled = $false
+    if (Test-DefenderStatus) {
+        $defenderWasDisabled = Disable-DefenderTemp
+    }
+
+    try {
+        Write-DebugLog "Install-Full: Starting installation process"
+        $versionInfo = Get-LatestGostVersion
     Write-DebugLog "Install-Full: versionInfo type = $($versionInfo.GetType().Name)"
     if (-not $versionInfo) {
         Write-ColorOutput "`nPress any key to return..." "Yellow"
@@ -411,6 +484,13 @@ function Install-Full {
     Write-ColorOutput "Install dir: $INSTALL_DIR" "White"
     Write-ColorOutput "Config file: $CONFIG_FILE" "White"
     Write-ColorOutput "API address: http://localhost:8090" "White"
+
+    } finally {
+        # Always re-enable Defender if we disabled it
+        if ($defenderWasDisabled) {
+            Enable-Defender
+        }
+    }
 
     Write-ColorOutput "`nPress any key to return..." "Yellow"
     $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
