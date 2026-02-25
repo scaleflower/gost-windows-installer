@@ -199,7 +199,7 @@ function Install-GostService {
         }
 
         $binPath = "`"$ExePath`" -C `"$ConfigPath`""
-        $result = sc.exe create $serviceName binPath= $binPath start= auto DisplayName= "GOST Port Forwarding Service" 2>&1
+        $result = sc.exe create $serviceName binPath= "$binPath" start= auto DisplayName= "GOST Port Forwarding Service" 2>&1
         if ($LASTEXITCODE -eq 0) {
             sc.exe description $serviceName "GOST Port Forwarding Service - Managed by gost-ui" | Out-Null
             sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/10000/restart/20000 | Out-Null
@@ -266,7 +266,8 @@ function Remove-FromPath {
     try {
         $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
         if ($currentPath -like "*$Path*") {
-            $newPath = ($currentPath -split ';' | Where-Object { $_ -ne $Path }) -join ';'
+            $pathEntries = $currentPath -split ';'
+            $newPath = ($pathEntries | Where-Object { $_.Trim() -ne $Path }) -join ';'
             [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
             Write-ColorOutput "Removed from system PATH: $Path" "Green"
         }
@@ -463,10 +464,17 @@ function Check-Update {
     if (Test-Path "$INSTALL_DIR\gost.exe") {
         try {
             $versionOutput = & "$INSTALL_DIR\gost.exe" -V 2>&1
-            if ($versionOutput -match "gost ([\d\.]+)") {
+            # GOST version output format: "gost x.y.z (build info)" or similar
+            # Try multiple patterns for better compatibility
+            if ($versionOutput -match "gost\s+([\d\.]+)") {
+                $currentVersion = $matches[1]
+            } elseif ($versionOutput -match "v([\d\.]+)") {
+                $currentVersion = $matches[1]
+            } elseif ($versionOutput -match "version[:\s]+([\d\.]+)") {
                 $currentVersion = $matches[1]
             }
             Write-ColorOutput "Current version: $currentVersion" "Cyan"
+            Write-ColorOutput "Debug - version output: $versionOutput" "DarkGray"
         } catch {
             Write-ColorOutput "Cannot detect current version" "Yellow"
         }
