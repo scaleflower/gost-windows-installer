@@ -670,8 +670,9 @@ function View-Log {
             Write-ColorOutput "`n========== End of log (showing last 50 lines) ==========" "Cyan"
         } elseif ($selection -match "^\d+$" -and [int]$selection -ge 1 -and [int]$selection -le $logFiles.Count) {
             # Open selected log in notepad
-            $selectedFile = $logFiles([int]$selection - 1).FullName
-            Write-ColorOutput "Opening: $($logFiles[([int]$selection - 1)].Name)" "Cyan"
+            $selectedIndex = [int]$selection - 1
+            $selectedFile = $logFiles[$selectedIndex].FullName
+            Write-ColorOutput "Opening: $($logFiles[$selectedIndex].Name)" "Cyan"
             notepad.exe $selectedFile
         }
     }
