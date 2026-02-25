@@ -130,24 +130,9 @@ function Get-LatestGostVersion {
         $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
         $response = Invoke-RestMethod -Uri $apiUrl -Headers @{"Accept"="application/vnd.github.v3+json"}
 
-        # 确保返回正确结构
-        $result = @{
-            Tag = $response.tag_name
-            Assets = @()
-        }
-
-        # 处理 assets 数组
-        if ($response.assets) {
-            foreach ($asset in $response.assets) {
-                $result.Assets += @{
-                    name = $asset.name
-                    browser_download_url = $asset.browser_download_url
-                }
-            }
-        }
-
-        Write-ColorOutput "获取到 $($result.Assets.Count) 个发布文件" "Gray"
-        return $result
+        # 直接返回原始 response，确保原始属性可访问
+        Write-ColorOutput "获取到 $($response.assets.Count) 个发布文件" "Gray"
+        return $response
     } catch {
         Write-ColorOutput "获取版本信息失败: $_" "Red"
         return $null
