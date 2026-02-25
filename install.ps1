@@ -1,7 +1,7 @@
 # =============================================================================
-# GOST Windows 安装脚本
-# 用途: 在 Windows 系统上自动下载、安装并配置 GOST
-# 使用: 以管理员身份运行 PowerShell -ExecutionPolicy Bypass -File install.ps1
+# GOST Windows 安装/卸载脚本
+# 用途: 在 Windows 系统上自动下载、安装、卸载 GOST
+# 使用: 以管理员身份运行 PowerShell -ExecutionPolicy Bypass -File install.ps1 [install|uninstall]
 # =============================================================================
 
 #Requires -RunAsAdministrator
@@ -12,6 +12,9 @@ $INSTALL_DIR = "C:\gost"
 $CONFIG_FILE = "$INSTALL_DIR\config.json"
 $DOWNLOAD_DIR = "$env:TEMP\gost_install"
 $SERVICE_NAME = "GostForward"
+
+# 获取操作类型（默认安装）
+$Action = if ($args.Count -gt 0) { $args[0].ToLower() } else { "install" }
 
 # 颜色输出函数
 function Write-ColorOutput {
@@ -89,7 +92,7 @@ function Download-Gost {
 }
 
 # 解压并安装
-function Install-Gost {
+function Install-GostBinary {
     param([string]$ZipFile)
 
     try {
@@ -230,66 +233,162 @@ function Add-ToPath {
     }
 }
 
+# 从环境变量移除
+function Remove-FromPath {
+    param([string]$Path)
+
+    try {
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+        if ($currentPath -like "*$Path*") {
+            $newPath = ($currentPath -split ';' | Where-Object { $_ -ne $Path }) -join ';'
+            [Environment]::SetEnvironmentVariable("Path", $newPath, "Machine")
+            Write-ColorOutput "已从系统 PATH 移除: $Path" "Green"
+        } else {
+            Write-ColorOutput "PATH 中未找到: $Path" "Gray"
+        }
+    } catch {
+        Write-ColorOutput "移除 PATH 失败: $_" "Yellow"
+    }
+}
+
+# 卸载 GOST
+function Uninstall-Gost {
+    Write-ColorOutput "`n========================================" "Yellow"
+    Write-ColorOutput "      GOST 卸载程序" "Yellow"
+    Write-ColorOutput "========================================`n" "Yellow"
+
+    # 1. 停止并删除服务
+    $existingService = Get-Service -Name $SERVICE_NAME -ErrorAction SilentlyContinue
+    if ($existingService) {
+        Write-ColorOutput "正在停止服务..." "Cyan"
+        Stop-Service -Name $SERVICE_NAME -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 1
+
+        Write-ColorOutput "正在删除服务..." "Cyan"
+        sc.exe delete $SERVICE_NAME | Out-Null
+        Write-ColorOutput "服务已删除" "Green"
+    } else {
+        Write-ColorOutput "未检测到已安装的服务" "Gray"
+    }
+
+    # 2. 删除防火墙规则
+    Write-ColorOutput "正在删除防火墙规则..." "Cyan"
+    Remove-NetFirewallRule -DisplayName "GOST API" -ErrorAction SilentlyContinue
+    Remove-NetFirewallRule -DisplayName "GOST Service" -ErrorAction SilentlyContinue
+    Write-ColorOutput "防火墙规则已删除" "Green"
+
+    # 3. 删除安装目录
+    if (Test-Path $INSTALL_DIR) {
+        Write-ColorOutput "正在删除安装目录: $INSTALL_DIR" "Cyan"
+        # 询问是否保留配置文件
+        Write-ColorOutput "`n是否保留配置文件 config.json? (Y/N)" "Yellow"
+        $keepConfig = Read-Host
+
+        if ($keepConfig -eq "Y" -or $keepConfig -eq "y") {
+            # 备份配置文件
+            $backupPath = "$env:USERPROFILE\Desktop\gost-config-backup.json"
+            Copy-Item -Path $CONFIG_FILE -Destination $backupPath -Force -ErrorAction SilentlyContinue
+            if (Test-Path $backupPath) {
+                Write-ColorOutput "配置文件已备份到: $backupPath" "Green"
+            }
+            # 删除除配置文件外的所有文件
+            Get-ChildItem -Path $INSTALL_DIR -Recurse | Where-Object { $_.FullName -ne $CONFIG_FILE } | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
+            Remove-Item -Path $INSTALL_DIR -Force -ErrorAction SilentlyContinue
+        } else {
+            Remove-Item -Path $INSTALL_DIR -Recurse -Force -ErrorAction SilentlyContinue
+            Write-ColorOutput "安装目录已删除" "Green"
+        }
+    } else {
+        Write-ColorOutput "安装目录不存在" "Gray"
+    }
+
+    # 4. 从 PATH 移除
+    Remove-FromPath -Path $INSTALL_DIR
+
+    Write-ColorOutput "`n========================================" "Green"
+    Write-ColorOutput "        卸载完成!" "Green"
+    Write-ColorOutput "========================================`n" "Green"
+}
+
+# 安装 GOST
+function Install-GostFull {
+    try {
+        Write-ColorOutput "`n========================================" "Cyan"
+        Write-ColorOutput "      GOST Windows 安装脚本" "Cyan"
+        Write-ColorOutput "========================================`n" "Cyan"
+
+        # 1. 获取最新版本
+        $versionInfo = Get-LatestGostVersion
+        Write-ColorOutput "最新版本: $($versionInfo.Tag)" "Green"
+
+        # 2. 检测架构
+        $architecture = Get-SystemArchitecture
+        Write-ColorOutput "系统架构: $architecture" "Green"
+
+        # 3. 下载
+        $zipFile = Download-Gost -Version $versionInfo -Architecture $architecture
+
+        # 4. 安装
+        Install-GostBinary -ZipFile $zipFile
+
+        # 5. 生成配置文件
+        New-GostConfig
+
+        # 6. 配置防火墙
+        Set-FirewallRule -ApiPort 8090
+
+        # 7. 添加到 PATH
+        Add-ToPath -Path $INSTALL_DIR
+
+        # 8. 询问是否安装为服务
+        Write-ColorOutput "`n是否将 GOST 安装为 Windows 服务? (Y/N)" "Yellow"
+        $installService = Read-Host
+
+        if ($installService -eq "Y" -or $installService -eq "y") {
+            Install-GostService -ExePath "$INSTALL_DIR\gost.exe" -ConfigPath $CONFIG_FILE
+            Write-ColorOutput "`n是否立即启动服务? (Y/N)" "Yellow"
+            $startService = Read-Host
+            if ($startService -eq "Y" -or $startService -eq "y") {
+                Start-Service -Name $SERVICE_NAME -ErrorAction SilentlyContinue
+                Write-ColorOutput "服务已启动" "Green"
+            }
+        }
+
+        # 清理
+        Remove-TempFiles
+
+        Write-ColorOutput "`n========================================" "Green"
+        Write-ColorOutput "        安装完成!" "Green"
+        Write-ColorOutput "========================================`n" "Green"
+        Write-ColorOutput "安装目录: $INSTALL_DIR" "White"
+        Write-ColorOutput "配置文件: $CONFIG_FILE" "White"
+        Write-ColorOutput "API 地址: http://localhost:8090" "White"
+        Write-Host "`n手动运行命令:" -ForegroundColor Cyan
+        Write-Host "  cd $INSTALL_DIR" -ForegroundColor Gray
+        Write-Host "  .\gost.exe -C config.json" -ForegroundColor Gray
+
+    } catch {
+        Write-ColorOutput "`n安装过程中发生错误: $_" "Red"
+        exit 1
+    }
+}
+
 # =============================================================================
 # 主程序
 # =============================================================================
 
-Write-ColorOutput "`n========================================" "Cyan"
-Write-ColorOutput "      GOST Windows 安装脚本" "Cyan"
-Write-ColorOutput "========================================`n" "Cyan"
-
-try {
-    # 1. 获取最新版本
-    $versionInfo = Get-LatestGostVersion
-    Write-ColorOutput "最新版本: $($versionInfo.Tag)" "Green"
-
-    # 2. 检测架构
-    $architecture = Get-SystemArchitecture
-    Write-ColorOutput "系统架构: $architecture" "Green"
-
-    # 3. 下载
-    $zipFile = Download-Gost -Version $versionInfo -Architecture $architecture
-
-    # 4. 安装
-    Install-Gost -ZipFile $zipFile
-
-    # 5. 生成配置文件
-    New-GostConfig
-
-    # 6. 配置防火墙
-    Set-FirewallRule -ApiPort 8090
-
-    # 7. 添加到 PATH
-    Add-ToPath -Path $INSTALL_DIR
-
-    # 8. 询问是否安装为服务
-    Write-ColorOutput "`n是否将 GOST 安装为 Windows 服务? (Y/N)" "Yellow"
-    $installService = Read-Host
-
-    if ($installService -eq "Y" -or $installService -eq "y") {
-        Install-GostService -ExePath "$INSTALL_DIR\gost.exe" -ConfigPath $CONFIG_FILE
-        Write-ColorOutput "`n是否立即启动服务? (Y/N)" "Yellow"
-        $startService = Read-Host
-        if ($startService -eq "Y" -or $startService -eq "y") {
-            Start-Service -Name $SERVICE_NAME -ErrorAction SilentlyContinue
-            Write-ColorOutput "服务已启动" "Green"
-        }
+switch ($Action) {
+    "uninstall" {
+        Uninstall-Gost
     }
-
-    # 清理
-    Remove-TempFiles
-
-    Write-ColorOutput "`n========================================" "Green"
-    Write-ColorOutput "        安装完成!" "Green"
-    Write-ColorOutput "========================================`n" "Green"
-    Write-ColorOutput "安装目录: $INSTALL_DIR" "White"
-    Write-ColorOutput "配置文件: $CONFIG_FILE" "White"
-    Write-ColorOutput "API 地址: http://localhost:8090" "White"
-    Write-Host "`n手动运行命令:" -ForegroundColor Cyan
-    Write-Host "  cd $INSTALL_DIR" -ForegroundColor Gray
-    Write-Host "  .\gost.exe -C config.json" -ForegroundColor Gray
-
-} catch {
-    Write-ColorOutput "`n安装过程中发生错误: $_" "Red"
-    exit 1
+    "install" {
+        Install-GostFull
+    }
+    default {
+        Write-ColorOutput "未知操作: $Action" "Red"
+        Write-Host "`n使用方法:" "Cyan"
+        Write-Host "  安装: PowerShell -ExecutionPolicy Bypass -File install.ps1 install" "Gray"
+        Write-Host "  卸载: PowerShell -ExecutionPolicy Bypass -File install.ps1 uninstall" "Gray"
+        exit 1
+    }
 }
