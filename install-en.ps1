@@ -94,7 +94,19 @@ function Get-LatestGostVersion {
         $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
         $response = Invoke-RestMethod -Uri $apiUrl -Headers @{"Accept"="application/vnd.github.v3+json"}
 
-        Write-ColorOutput "Latest version: $($response.tag_name)" "Green"
+        # Ensure tag_name exists (handle case sensitivity)
+        if ($response.tag_name) {
+            $versionTag = $response.tag_name
+        } elseif ($response.TAG_NAME) {
+            $versionTag = $response.TAG_NAME
+        } elseif ($response.name) {
+            $versionTag = $response.name
+        } else {
+            Write-ColorOutput "Failed to extract version from response" "Red"
+            return $null
+        }
+
+        Write-ColorOutput "Latest version: $versionTag" "Green"
         return $response
     } catch {
         Write-ColorOutput "Failed to get version info: $_" "Red"
@@ -104,11 +116,23 @@ function Get-LatestGostVersion {
 
 # Download GOST
 function Download-Gost {
-    param([string]$Version, [string]$Architecture)
+    param([object]$Version, [string]$Architecture)
+
+    # Extract tag_name with fallback for different property names
+    if ($Version.PSObject.Properties['tag_name']) {
+        $tagName = $Version.tag_name
+    } elseif ($Version.PSObject.Properties['TAG_NAME']) {
+        $tagName = $Version.TAG_NAME
+    } elseif ($Version.PSObject.Properties['name']) {
+        $tagName = $Version.name
+    } else {
+        Write-ColorOutput "Error: Cannot find version tag in response object" "Red"
+        return $null
+    }
 
     # Direct download URL construction
-    $versionTag = $Version.tag_name -replace '^v', ''
-    $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_${Architecture}.zip"
+    $versionTag = $tagName -replace '^v', ''
+    $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$tagName/gost_${versionTag}_windows_${Architecture}.zip"
     Write-ColorOutput "Download URL: $downloadUrl" "Gray"
 
     # Create download directory
@@ -116,7 +140,7 @@ function Download-Gost {
     $zipFile = "$DOWNLOAD_DIR\gost.zip"
 
     try {
-        Write-ColorOutput "Downloading GOST $($Version.tag_name)..." "Cyan"
+        Write-ColorOutput "Downloading GOST $tagName..." "Cyan"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -UseBasicParsing
         Write-ColorOutput "Download completed" "Green"
         return $zipFile
@@ -125,9 +149,9 @@ function Download-Gost {
 
         # List all available versions
         Write-ColorOutput "`nAvailable Windows versions:" "Cyan"
-        Write-Host "  386:   https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_386.zip" "Gray"
-        Write-Host "  amd64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_amd64.zip" "Gray"
-        Write-Host "  arm64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_arm64.zip" "Gray"
+        Write-Host "  386:   https://github.com/$GITHUB_REPO/releases/download/$tagName/gost_${versionTag}_windows_386.zip" "Gray"
+        Write-Host "  amd64: https://github.com/$GITHUB_REPO/releases/download/$tagName/gost_${versionTag}_windows_amd64.zip" "Gray"
+        Write-Host "  arm64: https://github.com/$GITHUB_REPO/releases/download/$tagName/gost_${versionTag}_windows_arm64.zip" "Gray"
 
         return $null
     }
