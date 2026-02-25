@@ -556,25 +556,104 @@ function Check-Update {
     Write-ColorOutput "========================================`n" "Cyan"
 
     $versionInfo = Get-LatestGostVersion
-    if ($versionInfo) {
-        Write-ColorOutput "最新版本: $($versionInfo.Tag)" "Green"
+    if (-not $versionInfo) {
+        Write-ColorOutput "`n按任意键返回..." "Yellow"
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        return
+    }
 
-        # 检查当前安装的版本
-        if (Test-Path "$INSTALL_DIR\gost.exe") {
-            try {
-                $currentVersion = & "$INSTALL_DIR\gost.exe" -V 2>&1 | Select-String "gost (\d+\.\d+\.\d+)" | ForEach-Object { $_.Matches[0].Groups[1].Value }
-                Write-ColorOutput "当前版本: $currentVersion" "Cyan"
+    Write-ColorOutput "最新版本: $($versionInfo.Tag)" "Green"
 
-                if ($currentVersion -eq $versionInfo.Tag.TrimStart('v')) {
-                    Write-ColorOutput "`n已是最新版本!" "Green"
-                } else {
-                    Write-ColorOutput "`n发现新版本，建议重新安装" "Yellow"
-                }
-            } catch {
-                Write-ColorOutput "无法检测当前版本" "Yellow"
+    # 检查当前安装的版本
+    $currentVersion = $null
+    if (Test-Path "$INSTALL_DIR\gost.exe") {
+        try {
+            $versionOutput = & "$INSTALL_DIR\gost.exe" -V 2>&1
+            if ($versionOutput -match "gost ([\d\.]+)") {
+                $currentVersion = $matches[1]
             }
-        } else {
-            Write-ColorOutput "未安装 GOST" "Yellow"
+            Write-ColorOutput "当前版本: $currentVersion" "Cyan"
+        } catch {
+            Write-ColorOutput "无法检测当前版本" "Yellow"
+        }
+    } else {
+        Write-ColorOutput "未安装 GOST" "Yellow"
+        Write-ColorOutput "`n按任意键返回..." "Yellow"
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        return
+    }
+
+    $latestVersion = $versionInfo.Tag.TrimStart('v')
+
+    if ($currentVersion -eq $latestVersion) {
+        Write-ColorOutput "`n已是最新版本!" "Green"
+    } else {
+        Write-ColorOutput "`n发现新版本!" "Yellow"
+        Write-ColorOutput "当前: $currentVersion -> 最新: $latestVersion" "Cyan"
+
+        Write-ColorOutput "`n是否立即更新? (Y/N)" "Yellow"
+        $updateConfirm = Read-Host
+
+        if ($updateConfirm -eq "Y" -or $updateConfirm -eq "y") {
+            # 执行更新
+            Write-ColorOutput "`n正在更新..." "Cyan"
+
+            # 停止服务
+            $existingService = Get-Service -Name $SERVICE_NAME -ErrorAction SilentlyContinue
+            if ($existingService) {
+                Write-ColorOutput "正在停止服务..." "Cyan"
+                Stop-Service -Name $SERVICE_NAME -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 1
+            }
+
+            # 检测架构
+            $architecture = Get-SystemArchitecture
+            if (-not $architecture) {
+                Write-ColorOutput "`n按任意键返回..." "Yellow"
+                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                return
+            }
+
+            # 下载
+            $zipFile = Download-Gost -Version $versionInfo -Architecture $architecture
+            if (-not $zipFile) {
+                Write-ColorOutput "`n按任意键返回..." "Yellow"
+                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                return
+            }
+
+            # 备份旧版本
+            $backupDir = "$INSTALL_DIR\backup_$currentVersion"
+            if (Test-Path "$INSTALL_DIR\gost.exe") {
+                Write-ColorOutput "备份当前版本到: $backupDir" "Cyan"
+                New-Item -Path $backupDir -ItemType Directory -Force | Out-Null
+                Copy-Item -Path "$INSTALL_DIR\gost.exe" -Destination "$backupDir\gost.exe" -Force
+            }
+
+            # 安装新版本
+            Write-ColorOutput "安装新版本..." "Cyan"
+            Expand-Archive -Path $zipFile -DestinationPath $DOWNLOAD_DIR -Force
+            $exeSource = Get-ChildItem -Path $DOWNLOAD_DIR -Filter "gost.exe" -Recurse | Select-Object -First 1
+            if ($exeSource) {
+                Copy-Item -Path $exeSource.FullName -Destination "$INSTALL_DIR\gost.exe" -Force
+                Write-ColorOutput "更新完成!" "Green"
+            }
+
+            # 清理临时文件
+            Remove-TempFiles
+
+            # 重启服务
+            if ($existingService) {
+                Write-ColorOutput "正在重启服务..." "Cyan"
+                Start-Service -Name $SERVICE_NAME -ErrorAction SilentlyContinue
+                Write-ColorOutput "服务已重启" "Green"
+            }
+
+            Write-ColorOutput "`n========================================" "Green"
+            Write-ColorOutput "        更新成功!" "Green"
+            Write-ColorOutput "========================================`n" "Green"
+            Write-ColorOutput "新版本: $latestVersion" "White"
+            Write-ColorOutput "备份位置: $backupDir" "Gray"
         }
     }
 
