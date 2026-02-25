@@ -151,51 +151,26 @@ function Download-Gost {
 
     $downloadUrl = $null
 
-    # 先尝试从 Assets 数组中查找
-    if ($Version.assets -and $Version.assets.Count -gt 0) {
-        Write-ColorOutput "Assets 数量: $($Version.assets.Count)" "Gray"
+    # 直接构造下载链接（最可靠的方式）
+    $versionTag = $Version.tag_name -replace '^v', ''
+    $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_${Architecture}.zip"
+    Write-ColorOutput "下载链接: $downloadUrl" "Gray"
 
-        foreach ($asset in $Version.assets) {
-            # PSObject 需要使用成员访问
-            $assetName = $asset.PSObject.Properties.Match('name').Value
-            if (-not $assetName) {
-                $assetName = $asset.name
-            }
+    # 测试链接是否有效
+    try {
+        $testResponse = Invoke-WebRequest -Uri $downloadUrl -Method Head -UseBasicParsing -ErrorAction Stop -TimeoutSec 10
+        Write-ColorOutput "链接验证成功" "Green"
+    } catch {
+        Write-ColorOutput "链接验证失败: $($_.Exception.Message)" "Yellow"
+        Write-ColorOutput "请确认网络连接或检查 GitHub 是否有新版本" "Yellow"
 
-            if ($assetName -match $zipPattern) {
-                $downloadUrl = $asset.PSObject.Properties.Match('browser_download_url').Value
-                if (-not $downloadUrl) {
-                    $downloadUrl = $asset.browser_download_url
-                }
-                Write-ColorOutput "找到匹配: $assetName" "Green"
-                break
-            }
-        }
-    }
+        # 列出所有可能的下载链接供用户选择
+        Write-ColorOutput "`n可用的 Windows 版本:" "Cyan"
+        Write-Host "  386:   https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_386.zip" "Gray"
+        Write-Host "  amd64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_amd64.zip" "Gray"
+        Write-Host "  arm64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_arm64.zip" "Gray"
 
-    if (-not $downloadUrl) {
-        Write-ColorOutput "从 API 获取失败，尝试直接构造下载链接..." "Yellow"
-
-        # 备用方案：直接构造下载链接
-        $versionTag = $Version.tag_name -replace '^v', ''
-        $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_${Architecture}.zip"
-        Write-ColorOutput "构造链接: $downloadUrl" "Gray"
-
-        # 测试链接是否有效
-        try {
-            $testResponse = Invoke-WebRequest -Uri $downloadUrl -Method Head -UseBasicParsing -ErrorAction Stop
-            Write-ColorOutput "链接有效" "Green"
-        } catch {
-            Write-ColorOutput "链接无效，尝试其他架构..." "Yellow"
-
-            # 列出所有可能的下载链接
-            Write-ColorOutput "可用的 Windows 版本:" "Cyan"
-            Write-Host "  https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_386.zip" "Gray"
-            Write-Host "  https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_amd64.zip" "Gray"
-            Write-Host "  https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_arm64.zip" "Gray"
-
-            return $null
-        }
+        return $null
     }
 
     # 创建下载目录
