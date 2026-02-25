@@ -12,11 +12,33 @@ $INSTALL_DIR = "C:\gost"
 $CONFIG_FILE = "$INSTALL_DIR\config.json"
 $DOWNLOAD_DIR = "$env:TEMP\gost_install"
 $SERVICE_NAME = "GostForward"
+$LOG_FILE = "$env:TEMP\gost-install_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
 
-# Color output function
+# Initialize log
+function Initialize-Log {
+    $logDir = Split-Path -Parent $LOG_FILE
+    if (-not (Test-Path $logDir)) {
+        New-Item -Path $logDir -ItemType Directory -Force | Out-Null
+    }
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $LOG_FILE -Value "========== GOST Installer Log Started at $timestamp =========="
+    Write-Host "Log file: $LOG_FILE" -ForegroundColor DarkGray
+}
+
+# Color output function with logging
 function Write-ColorOutput {
     param([string]$Message, [string]$Color = "White")
     Write-Host $Message -ForegroundColor $Color
+    # Also write to log file (without color codes)
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    Add-Content -Path $LOG_FILE -Value "[$timestamp] $Message"
+}
+
+# Write debug info to log
+function Write-DebugLog {
+    param([string]$Message)
+    $timestamp = Get-Date -Format "HH:mm:ss"
+    Add-Content -Path $LOG_FILE -Value "[$timestamp] DEBUG: $Message"
 }
 
 # Show main menu
@@ -91,18 +113,26 @@ function Get-SystemArchitecture {
 function Get-LatestGostVersion {
     try {
         Write-ColorOutput "Fetching latest GOST version..." "Cyan"
+        Write-DebugLog "Get-LatestGostVersion: Starting"
         $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+        Write-DebugLog "API URL: $apiUrl"
         $response = Invoke-RestMethod -Uri $apiUrl -Headers @{"Accept"="application/vnd.github.v3+json"}
+        Write-DebugLog "Response type: $($response.GetType().Name)"
+        Write-DebugLog "Response properties: $($response.PSObject.Properties.Name -join ', ')"
 
         # Ensure tag_name exists (handle case sensitivity)
         if ($response.tag_name) {
             $versionTag = $response.tag_name
+            Write-DebugLog "Found tag_name: $versionTag"
         } elseif ($response.TAG_NAME) {
             $versionTag = $response.TAG_NAME
+            Write-DebugLog "Found TAG_NAME: $versionTag"
         } elseif ($response.name) {
             $versionTag = $response.name
+            Write-DebugLog "Found name: $versionTag"
         } else {
             Write-ColorOutput "Failed to extract version from response" "Red"
+            Write-DebugLog "ERROR: No version tag found in response"
             return $null
         }
 
@@ -110,6 +140,7 @@ function Get-LatestGostVersion {
         return $response
     } catch {
         Write-ColorOutput "Failed to get version info: $_" "Red"
+        Write-DebugLog "ERROR: $_"
         return $null
     }
 }
@@ -118,15 +149,30 @@ function Get-LatestGostVersion {
 function Download-Gost {
     param([object]$Version, [string]$Architecture)
 
+    Write-DebugLog "Download-Gost: Version type = $($Version.GetType().Name)"
+    Write-DebugLog "Download-Gost: Version is null? = $($Version -eq $null)"
+
+    if ($Version -eq $null) {
+        Write-ColorOutput "Error: Version object is null" "Red"
+        Write-DebugLog "ERROR: Version parameter is null"
+        return $null
+    }
+
+    Write-DebugLog "Download-Gost: Version properties = $($Version.PSObject.Properties.Name -join ', ')"
+
     # Extract tag_name with fallback for different property names
     if ($Version.PSObject.Properties['tag_name']) {
         $tagName = $Version.tag_name
+        Write-DebugLog "Found tag_name property: $tagName"
     } elseif ($Version.PSObject.Properties['TAG_NAME']) {
         $tagName = $Version.TAG_NAME
+        Write-DebugLog "Found TAG_NAME property: $tagName"
     } elseif ($Version.PSObject.Properties['name']) {
         $tagName = $Version.name
+        Write-DebugLog "Found name property: $tagName"
     } else {
         Write-ColorOutput "Error: Cannot find version tag in response object" "Red"
+        Write-DebugLog "ERROR: No version tag found in Version object"
         return $null
     }
 
@@ -134,6 +180,7 @@ function Download-Gost {
     $versionTag = $tagName -replace '^v', ''
     $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$tagName/gost_${versionTag}_windows_${Architecture}.zip"
     Write-ColorOutput "Download URL: $downloadUrl" "Gray"
+    Write-DebugLog "Constructed URL: $downloadUrl"
 
     # Create download directory
     New-Item -Path $DOWNLOAD_DIR -ItemType Directory -Force | Out-Null
@@ -308,7 +355,9 @@ function Install-Full {
     Write-ColorOutput "      Installing GOST" "Cyan"
     Write-ColorOutput "========================================`n" "Cyan"
 
+    Write-DebugLog "Install-Full: Starting installation process"
     $versionInfo = Get-LatestGostVersion
+    Write-DebugLog "Install-Full: versionInfo type = $($versionInfo.GetType().Name)"
     if (-not $versionInfo) {
         Write-ColorOutput "`nPress any key to return..." "Yellow"
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
@@ -578,6 +627,9 @@ function Check-Update {
 # =============================================================================
 # Main
 # =============================================================================
+
+# Initialize logging
+Initialize-Log
 
 if ($args.Count -gt 0) {
     $Action = $args[0].ToLower()
