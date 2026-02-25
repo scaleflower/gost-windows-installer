@@ -131,7 +131,7 @@ function Get-LatestGostVersion {
         $response = Invoke-RestMethod -Uri $apiUrl -Headers @{"Accept"="application/vnd.github.v3+json"}
 
         # 直接返回原始 response，确保原始属性可访问
-        Write-ColorOutput "获取到 $($response.assets.Count) 个发布文件" "Gray"
+        Write-ColorOutput "最新版本: $($response.tag_name)" "Green"
         return $response
     } catch {
         Write-ColorOutput "获取版本信息失败: $_" "Red"
@@ -146,32 +146,10 @@ function Download-Gost {
         [string]$Architecture
     )
 
-    $zipPattern = "gost.*windows_$Architecture.*\.zip"
-    Write-ColorOutput "正在匹配 $Architecture 版本..." "Cyan"
-
-    $downloadUrl = $null
-
     # 直接构造下载链接（最可靠的方式）
     $versionTag = $Version.tag_name -replace '^v', ''
     $downloadUrl = "https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_${Architecture}.zip"
     Write-ColorOutput "下载链接: $downloadUrl" "Gray"
-
-    # 测试链接是否有效
-    try {
-        $testResponse = Invoke-WebRequest -Uri $downloadUrl -Method Head -UseBasicParsing -ErrorAction Stop -TimeoutSec 10
-        Write-ColorOutput "链接验证成功" "Green"
-    } catch {
-        Write-ColorOutput "链接验证失败: $($_.Exception.Message)" "Yellow"
-        Write-ColorOutput "请确认网络连接或检查 GitHub 是否有新版本" "Yellow"
-
-        # 列出所有可能的下载链接供用户选择
-        Write-ColorOutput "`n可用的 Windows 版本:" "Cyan"
-        Write-Host "  386:   https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_386.zip" "Gray"
-        Write-Host "  amd64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_amd64.zip" "Gray"
-        Write-Host "  arm64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_arm64.zip" "Gray"
-
-        return $null
-    }
 
     # 创建下载目录
     New-Item -Path $DOWNLOAD_DIR -ItemType Directory -Force | Out-Null
@@ -179,11 +157,18 @@ function Download-Gost {
 
     try {
         Write-ColorOutput "正在下载 GOST $($Version.tag_name)..." "Cyan"
-        Write-ColorOutput "下载地址: $downloadUrl" "Gray"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipFile -UseBasicParsing
+        Write-ColorOutput "下载完成" "Green"
         return $zipFile
     } catch {
         Write-ColorOutput "下载失败: $_" "Red"
+
+        # 列出所有可能的下载链接供用户选择
+        Write-ColorOutput "`n可用的 Windows 版本:" "Cyan"
+        Write-Host "  386:   https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_386.zip" "Gray"
+        Write-Host "  amd64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_amd64.zip" "Gray"
+        Write-Host "  arm64: https://github.com/$GITHUB_REPO/releases/download/$($Version.tag_name)/gost_${versionTag}_windows_arm64.zip" "Gray"
+
         return $null
     }
 }
@@ -372,7 +357,6 @@ function Install-Full {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         return $false
     }
-    Write-ColorOutput "最新版本: $($versionInfo.Tag)" "Green"
 
     # 2. 检测架构
     $architecture = Get-SystemArchitecture
@@ -381,7 +365,6 @@ function Install-Full {
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         return $false
     }
-    Write-ColorOutput "系统架构: $architecture" "Green"
 
     # 3. 下载
     $zipFile = Download-Gost -Version $versionInfo -Architecture $architecture
@@ -575,8 +558,6 @@ function Check-Update {
         return
     }
 
-    Write-ColorOutput "最新版本: $($versionInfo.Tag)" "Green"
-
     # 检查当前安装的版本
     $currentVersion = $null
     if (Test-Path "$INSTALL_DIR\gost.exe") {
@@ -596,7 +577,7 @@ function Check-Update {
         return
     }
 
-    $latestVersion = $versionInfo.Tag.TrimStart('v')
+    $latestVersion = $versionInfo.tag_name.TrimStart('v')
 
     if ($currentVersion -eq $latestVersion) {
         Write-ColorOutput "`n已是最新版本!" "Green"
