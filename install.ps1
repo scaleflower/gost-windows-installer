@@ -608,7 +608,7 @@ if ($args.Count -gt 0) {
             Write-Host "  交互菜单: install.ps1" -ForegroundColor Gray
         }
     }
-    exit
+    return
 }
 
 # 交互式菜单模式
@@ -635,7 +635,7 @@ do {
         }
         "4" {
             Write-ColorOutput "`n再见!" "Green"
-            exit
+            return
         }
         default {
             Write-ColorOutput "`n无效选项，请重新选择" "Red"
