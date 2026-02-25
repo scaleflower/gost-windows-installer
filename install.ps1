@@ -148,22 +148,30 @@ function Download-Gost {
 
     $zipPattern = "gost.*windows_$Architecture.*\.zip"
     Write-ColorOutput "匹配模式: $zipPattern" "Gray"
+    Write-ColorOutput "Assets 类型: $($Version.Assets.GetType().Name)" "Gray"
+    Write-ColorOutput "Assets 数量: $($Version.Assets.Count)" "Gray"
 
-    foreach ($asset in $Version.Assets) {
-        Write-ColorOutput "  检查文件: $($asset.name)" "Gray"
-        if ($asset.name -match $zipPattern) {
-            $downloadUrl = $asset.browser_download_url
-            Write-ColorOutput "  找到匹配: $($asset.name)" "Green"
+    $downloadUrl = $null
+    for ($i = 0; $i -lt $Version.Assets.Count; $i++) {
+        $asset = $Version.Assets[$i]
+        $assetName = if ($asset.name) { $asset.name } elseif ($asset.Name) { $asset.Name } else { "未知" }
+        Write-ColorOutput "  [$i] 文件: $assetName" "Gray"
+
+        if ($assetName -match $zipPattern) {
+            $downloadUrl = if ($asset.browser_download_url) { $asset.browser_download_url } elseif ($asset.browser_download_url) { $asset.browser_download_url } else { $null }
+            Write-ColorOutput "  找到匹配: $assetName" "Green"
             break
         }
     }
 
     if (-not $downloadUrl) {
         Write-ColorOutput "未找到匹配 Windows $Architecture 的版本" "Red"
-        Write-ColorOutput "可用文件:" "Yellow"
-        foreach ($asset in $Version.Assets) {
-            if ($asset.name -match "windows") {
-                Write-Host "  - $($asset.name)" -ForegroundColor Gray
+        Write-ColorOutput "可用 Windows 文件:" "Yellow"
+        for ($i = 0; $i -lt $Version.Assets.Count; $i++) {
+            $asset = $Version.Assets[$i]
+            $assetName = if ($asset.name) { $asset.name } elseif ($asset.Name) { $asset.Name } else { "未知" }
+            if ($assetName -match "windows") {
+                Write-Host "  - $assetName" -ForegroundColor Gray
             }
         }
         return $null
