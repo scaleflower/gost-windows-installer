@@ -277,7 +277,42 @@ function Install-GostBinary {
 
     try {
         Write-ColorOutput "Extracting files..." "Cyan"
-        Expand-Archive -Path $ZipFile -DestinationPath $DOWNLOAD_DIR -Force
+
+        # Try to extract, handle Defender blocking
+        try {
+            Expand-Archive -Path $ZipFile -DestinationPath $DOWNLOAD_DIR -Force
+        } catch {
+            $errorMsg = $_.Exception.Message
+            Write-DebugLog "Expand-Archive error: $errorMsg"
+
+            # Check if it's a Defender block
+            if ($errorMsg -match "virus" -or $errorMsg -match "potentially unwanted") {
+                Write-ColorOutput "Detected: File blocked by Windows Defender" "Yellow"
+                Write-ColorOutput "Attempting to add exclusion and retry..." "Cyan"
+
+                # Add the download directory and zip file to Defender exclusions
+                try {
+                    Add-MpPreference -ExclusionPath $DOWNLOAD_DIR -ErrorAction SilentlyContinue
+                    Add-MpPreference -ExclusionPath $ZipFile -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Added to Defender exclusions, retrying extraction..." "Yellow"
+
+                    # Retry extraction
+                    Expand-Archive -Path $ZipFile -DestinationPath $DOWNLOAD_DIR -Force
+                } catch {
+                    Write-ColorOutput "Automatic exclusion failed. Manual action required:" "Red"
+                    Write-ColorOutput "1. Open Windows Security" "Yellow"
+                    Write-ColorOutput "2. Go to Virus & threat protection > Manage settings" "Yellow"
+                    Write-ColorOutput "3. Scroll to Exclusions > Add or remove exclusions" "Yellow"
+                    Write-ColorOutput "4. Add folder: $DOWNLOAD_DIR" "Yellow"
+                    Write-ColorOutput "5. Then press Enter to retry" "Yellow"
+                    Read-Host
+                    Expand-Archive -Path $ZipFile -DestinationPath $DOWNLOAD_DIR -Force
+                }
+            } else {
+                throw $_
+            }
+        }
 
         New-Item -Path $INSTALL_DIR -ItemType Directory -Force | Out-Null
 
@@ -292,6 +327,7 @@ function Install-GostBinary {
         }
     } catch {
         Write-ColorOutput "Installation failed: $_" "Red"
+        Write-DebugLog "Install-GostBinary failed: $_"
         return $false
     }
 }
@@ -681,7 +717,20 @@ function Check-Update {
             }
 
             Write-ColorOutput "Installing new version..." "Cyan"
-            Expand-Archive -Path $zipFile -DestinationPath $DOWNLOAD_DIR -Force
+            try {
+                Expand-Archive -Path $zipFile -DestinationPath $DOWNLOAD_DIR -Force
+            } catch {
+                $errorMsg = $_.Exception.Message
+                if ($errorMsg -match "virus" -or $errorMsg -match "potentially unwanted") {
+                    Write-ColorOutput "File blocked by Defender, adding exclusion..." "Yellow"
+                    Add-MpPreference -ExclusionPath $DOWNLOAD_DIR -ErrorAction SilentlyContinue
+                    Add-MpPreference -ExclusionPath $zipFile -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 1
+                    Expand-Archive -Path $zipFile -DestinationPath $DOWNLOAD_DIR -Force
+                } else {
+                    throw $_
+                }
+            }
             $exeSource = Get-ChildItem -Path $DOWNLOAD_DIR -Filter "gost.exe" -Recurse | Select-Object -First 1
             if ($exeSource) {
                 Copy-Item -Path $exeSource.FullName -Destination "$INSTALL_DIR\gost.exe" -Force
