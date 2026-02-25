@@ -1,7 +1,13 @@
 # =============================================================================
 # GOST Windows Installer/Uninstaller Script
 # Purpose: Automatically download, install, uninstall GOST on Windows
-# Usage: Run as Administrator - PowerShell -ExecutionPolicy Bypass -File install-en.ps1
+#
+# Quick Run (One-line):
+#   irm "https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install-en.ps1?v=$([DateTime]::Now.Ticks)" | iex
+#
+# Or download first:
+#   irm "https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install-en.ps1" -OutFile install.ps1
+#   PowerShell -ExecutionPolicy Bypass -File install.ps1
 # =============================================================================
 
 #Requires -RunAsAdministrator

@@ -15,39 +15,38 @@
 
 ## 快速开始
 
-### 方式一：交互式菜单（推荐）
+### 一键执行（推荐）
 
-以管理员身份打开 PowerShell，执行以下命令：
+以管理员身份打开 PowerShell，执行以下命令即可下载并自动运行：
 
 ```powershell
-# 下载并运行
-irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 -OutFile $env:TEMP\install.ps1; PowerShell -ExecutionPolicy Bypass -File $env:TEMP\install.ps1
+irm "https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install-en.ps1?v=$([DateTime]::Now.Ticks)" | iex
 ```
 
-### 方式二：分步执行
+### 方式二：先下载后执行
 
 ```powershell
 # 1. 下载脚本
-irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 -OutFile $env:TEMP\install.ps1
+irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install-en.ps1 -OutFile install-en.ps1
 
 # 2. 运行脚本
-PowerShell -ExecutionPolicy Bypass -File $env:TEMP\install.ps1
+PowerShell -ExecutionPolicy Bypass -File install-en.ps1
 ```
 
 ### 方式三：命令行参数
 
 ```powershell
 # 下载脚本
-irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install.ps1 -OutFile install.ps1
+irm https://raw.githubusercontent.com/scaleflower/gost-windows-installer/main/install-en.ps1 -OutFile install-en.ps1
 
 # 安装
-PowerShell -ExecutionPolicy Bypass -File install.ps1 install
+PowerShell -ExecutionPolicy Bypass -File install-en.ps1 install
 
 # 卸载
-PowerShell -ExecutionPolicy Bypass -File install.ps1 uninstall
+PowerShell -ExecutionPolicy Bypass -File install-en.ps1 uninstall
 
 # 检查更新
-PowerShell -ExecutionPolicy Bypass -File install.ps1 update
+PowerShell -ExecutionPolicy Bypass -File install-en.ps1 update
 ```
 
 ### 安装选项
