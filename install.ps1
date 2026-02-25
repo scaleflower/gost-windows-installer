@@ -30,10 +30,10 @@ function Show-MainMenu {
     Write-ColorOutput "========================================`n" "Cyan"
 
     Write-ColorOutput "请选择操作:" "Yellow"
-    Write-Host "  1. 安装 GOST" "White"
-    Write-Host "  2. 卸载 GOST" "White"
-    Write-Host "  3. 检查更新" "White"
-    Write-Host "  4. 退出" "White"
+    Write-Host "  1. 安装 GOST"
+    Write-Host "  2. 卸载 GOST"
+    Write-Host "  3. 检查更新"
+    Write-Host "  4. 退出"
     Write-Host ""
 
     $choice = Read-Host "请输入选项 (1-4)"
@@ -48,9 +48,9 @@ function Show-InstallMenu {
     Write-ColorOutput "========================================`n" "Cyan"
 
     Write-ColorOutput "请选择安装方式:" "Yellow"
-    Write-Host "  1. 完整安装 (下载最新版本 + 安装服务)" "White"
-    Write-Host "  2. 仅安装服务 (使用已有文件)" "White"
-    Write-Host "  3. 返回主菜单" "White"
+    Write-Host "  1. 完整安装 (下载最新版本 + 安装服务)"
+    Write-Host "  2. 仅安装服务 (使用已有文件)"
+    Write-Host "  3. 返回主菜单"
     Write-Host ""
 
     $choice = Read-Host "请输入选项 (1-3)"
@@ -549,11 +549,11 @@ if ($args.Count -gt 0) {
         }
         default {
             Write-ColorOutput "未知操作: $Action" "Red"
-            Write-Host "`n使用方法:" "Cyan"
-            Write-Host "  安装: install.ps1 install" "Gray"
-            Write-Host "  卸载: install.ps1 uninstall" "Gray"
-            Write-Host "  更新: install.ps1 update" "Gray"
-            Write-Host "  交互菜单: install.ps1" "Gray"
+            Write-Host "`n使用方法:" -ForegroundColor Cyan
+            Write-Host "  安装: install.ps1 install" -ForegroundColor Gray
+            Write-Host "  卸载: install.ps1 uninstall" -ForegroundColor Gray
+            Write-Host "  更新: install.ps1 update" -ForegroundColor Gray
+            Write-Host "  交互菜单: install.ps1" -ForegroundColor Gray
         }
     }
     exit
