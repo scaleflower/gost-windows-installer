@@ -144,68 +144,44 @@ function New-GostConfig {
 }
 
 # 创建 Windows 服务
+# GOST 内置使用 judwhite/go-svc，可直接注册为 Windows 服务
 function Install-GostService {
     param([string]$ExePath, [string]$ConfigPath)
 
-    # 检查是否已安装 NSSM (推荐方式) 或使用 sc.exe
-    $nssmPath = "$INSTALL_DIR\nssm.exe"
-    $useNssm = $false
-
-    # 尝试使用系统中的 NSSM
     try {
-        $nssmCheck = Get-Command nssm -ErrorAction SilentlyContinue
-        if ($nssmCheck) {
-            $useNssm = $true
+        Write-ColorOutput "正在安装 Windows 服务..." "Cyan"
+        $serviceName = $SERVICE_NAME
+
+        # 删除已存在的服务
+        $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($existingService) {
+            Write-ColorOutput "检测到已存在的服务，正在删除..." "Yellow"
+            Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+            sc.exe delete $serviceName | Out-Null
+            Start-Sleep -Seconds 2
         }
-    } catch {}
 
-    if ($useNssm) {
-        try {
-            Write-ColorOutput "使用 NSSM 安装服务..." "Cyan"
-            # 先停止并删除可能存在的旧服务
-            nssm stop $SERVICE_NAME 2>$null
-            nssm remove $SERVICE_NAME confirm 2>$null
+        # 创建服务 (GOST 内置支持 Windows 服务模式)
+        $binPath = "`"$ExePath`" -C `"$ConfigPath`""
+        $result = sc.exe create $serviceName binPath= $binPath start= auto DisplayName= "GOST Port Forwarding Service" 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            sc.exe description $serviceName "GOST 端口转发服务 - 内置 go-svc 支持，由 gost-ui 管理" | Out-Null
 
-            # 安装新服务
-            nssm install $SERVICE_NAME $ExePath "-C" $ConfigPath
-            nssm set $SERVICE_NAME DisplayName "GOST Port Forwarding Service"
-            nssm set $SERVICE_NAME Description "GOST 端口转发服务 - 由 gost-ui 管理"
-            nssm set $SERVICE_NAME Start SERVICE_AUTO_START
-
-            Write-ColorOutput "服务已安装: $SERVICE_NAME" "Green"
-            Write-ColorOutput "使用以下命令管理服务:" "Cyan"
-            Write-Host "  启动: nssm start $SERVICE_NAME" -ForegroundColor Gray
-            Write-Host "  停止: nssm stop $SERVICE_NAME" -ForegroundColor Gray
-            Write-Host "  重启: nssm restart $SERVICE_NAME" -ForegroundColor Gray
-            Write-Host "  卸载: nssm remove $SERVICE_NAME confirm" -ForegroundColor Gray
-        } catch {
-            Write-ColorOutput "NSSM 安装服务失败: $_" "Yellow"
-        }
-    } else {
-        # 使用 sc.exe 创建服务
-        try {
-            Write-ColorOutput "使用 sc.exe 安装服务..." "Cyan"
-            $serviceName = $SERVICE_NAME
-
-            # 删除已存在的服务
-            $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-            if ($existingService) {
-                Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
-                sc.exe delete $serviceName | Out-Null
-                Start-Sleep -Seconds 2
-            }
-
-            # 创建服务
-            $binPath = "`"$ExePath`" -C `"$ConfigPath`""
-            sc.exe create $serviceName binPath= $binPath start= auto DisplayName= "GOST Port Forwarding Service" | Out-Null
-            sc.exe description $serviceName "GOST 端口转发服务 - 由 gost-ui 管理" | Out-Null
+            # 配置服务恢复选项
+            sc.exe failure $serviceName reset= 86400 actions= restart/5000/restart/10000/restart/20000 | Out-Null
 
             Write-ColorOutput "服务已安装: $serviceName" "Green"
-            Write-ColorOutput "注意: sc.exe 创建的服务需要手动配置恢复选项，建议安装 NSSM" "Yellow"
-        } catch {
-            Write-ColorOutput "sc.exe 安装服务失败: $_" "Red"
-            Write-ColorOutput "您可以手动安装 NSSM 后重新运行此脚本" "Yellow"
+            Write-ColorOutput "使用以下命令管理服务:" "Cyan"
+            Write-Host "  启动: net start $serviceName" -ForegroundColor Gray
+            Write-Host "  停止: net stop $serviceName" -ForegroundColor Gray
+            Write-Host "  卸载: sc.exe delete $serviceName" -ForegroundColor Gray
+        } else {
+            Write-ColorOutput "创建服务失败: $result" "Red"
+            throw "服务创建失败"
         }
+    } catch {
+        Write-ColorOutput "安装服务失败: $_" "Red"
+        throw
     }
 }
 
@@ -312,10 +288,6 @@ try {
     Write-Host "`n手动运行命令:" -ForegroundColor Cyan
     Write-Host "  cd $INSTALL_DIR" -ForegroundColor Gray
     Write-Host "  .\gost.exe -C config.json" -ForegroundColor Gray
-    Write-Host "`n如需安装 NSSM 获得更好的服务管理体验:" -ForegroundColor Cyan
-    Write-Host "  winget install NSSM" -ForegroundColor Gray
-    Write-Host "  或" -ForegroundColor Gray
-    Write-Host "  choco install nssm" -ForegroundColor Gray
 
 } catch {
     Write-ColorOutput "`n安装过程中发生错误: $_" "Red"
