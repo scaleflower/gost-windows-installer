@@ -255,6 +255,31 @@ C:\gost\
 └── gost.service      # systemd 服务文件
 ```
 
+## 更新外部依赖
+
+项目包含 `external/` 目录，用于存储 GOST 和 gost-ui 的源码和二进制文件。提供了自动更新脚本来同步最新的代码和版本。
+
+### Windows
+
+```powershell
+# 以管理员身份运行
+PowerShell -ExecutionPolicy Bypass -File update-external.ps1
+```
+
+脚本会自动：
+- 检查 GOST 最新 release 版本
+- 下载所有平台的二进制文件（Windows/Linux, x64/x86/ARM64）
+- 更新 GOST 源码到指定版本
+- 更新 gost-ui 源码到最新 master 分支
+- 更新 `VERSIONS.txt` 版本记录文件
+
+### Linux
+
+```bash
+# 需要安装 git
+sudo bash update-external.sh
+```
+
 ## 故障排查
 
 ### Windows 服务无法启动
