@@ -124,6 +124,12 @@ $Strings = @{
     KeepingDefender = if ($IsChineseSystem) { "保持 Defender 启用 (安装可能会失败)" } else { "Keeping Defender enabled (installation may fail)" }
     ReEnablingDefender = if ($IsChineseSystem) { "正在重新启用 Windows Defender 实时保护..." } else { "Re-enabling Windows Defender real-time protection..." }
     DefenderEnabled = if ($IsChineseSystem) { "Windows Defender 实时保护已启用" } else { "Windows Defender real-time protection ENABLED" }
+    AddingExclusions = if ($IsChineseSystem) { "正在添加 Windows Defender 排除项..." } else { "Adding Windows Defender exclusions..." }
+    AddedExclusion = if ($IsChineseSystem) { "已添加排除项: " } else { "Added exclusion: " }
+    ExclusionExists = if ($IsChineseSystem) { "排除项已存在: " } else { "Exclusion already exists: " }
+    ExclusionsKept = if ($IsChineseSystem) { "Defender 排除项已添加 (永久保留)" } else { "Defender exclusions added (kept permanently)" }
+    FailedExclusions = if ($IsChineseSystem) { "添加排除项失败: " } else { "Failed to add Defender exclusions: " }
+    ManualExclusions = if ($IsChineseSystem) { "请手动添加: Windows 安全中心 > 病毒和威胁防护 > 管理设置 > 排除项" } else { "Please add manually: Windows Security > Virus & threat protection > Manage settings > Exclusions" }
 
     # Error messages
     Error = if ($IsChineseSystem) { "错误" } else { "Error" }
@@ -206,6 +212,38 @@ function Disable-DefenderTemp {
     } catch {
         Write-ColorOutput "Failed to disable Defender: $_" "Red"
         Write-ColorOutput "You may need to disable it manually" "Yellow"
+        return $false
+    }
+}
+
+# Add Windows Defender exclusion for GOST directories
+function Add-DefenderExclusion {
+    try {
+        Write-ColorOutput $Strings.AddingExclusions "Cyan"
+
+        $exclusions = Get-MpPreference -ErrorAction SilentlyContinue | Select-Object -ExpandProperty ExclusionPath
+
+        # Add install directory if not already excluded
+        if ($INSTALL_DIR -notin $exclusions) {
+            Add-MpPreference -ExclusionPath $INSTALL_DIR -ErrorAction Stop
+            Write-ColorOutput "$($Strings.AddedExclusion)$INSTALL_DIR" "Green"
+        } else {
+            Write-ColorOutput "$($Strings.ExclusionExists)$INSTALL_DIR" "Gray"
+        }
+
+        # Add download directory if not already excluded
+        if ($DOWNLOAD_DIR -notin $exclusions) {
+            Add-MpPreference -ExclusionPath $DOWNLOAD_DIR -ErrorAction Stop
+            Write-ColorOutput "$($Strings.AddedExclusion)$DOWNLOAD_DIR" "Green"
+        } else {
+            Write-ColorOutput "$($Strings.ExclusionExists)$DOWNLOAD_DIR" "Gray"
+        }
+
+        Write-ColorOutput $Strings.ExclusionsKept "Yellow"
+        return $true
+    } catch {
+        Write-ColorOutput "$($Strings.FailedExclusions)$_" "Red"
+        Write-ColorOutput $Strings.ManualExclusions "Yellow"
         return $false
     }
 }
@@ -582,6 +620,9 @@ function Install-Full {
     Write-ColorOutput "      Installing GOST" "Cyan"
     Write-ColorOutput "========================================`n" "Cyan"
 
+    # Add Defender exclusions BEFORE downloading
+    Add-DefenderExclusion
+
     # Check and optionally disable Windows Defender
     $defenderWasDisabled = $false
     if (Test-DefenderStatus) {
@@ -811,6 +852,9 @@ function Check-Update {
 
         if ($updateConfirm -eq "Y" -or $updateConfirm -eq "y") {
             Write-ColorOutput "`nUpdating..." "Cyan"
+
+            # Add Defender exclusions before downloading update
+            Add-DefenderExclusion
 
             $existingService = Get-Service -Name $SERVICE_NAME -ErrorAction SilentlyContinue
             if ($existingService) {
