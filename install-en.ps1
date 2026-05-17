@@ -343,30 +343,82 @@ function Get-LatestGostVersion {
     try {
         Write-ColorOutput $Strings.FetchingVersion "Cyan"
         Write-DebugLog "Get-LatestGostVersion: Starting"
-        $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
-        Write-DebugLog "API URL: $apiUrl"
-        $response = Invoke-RestMethod -Uri $apiUrl -Headers @{"Accept"="application/vnd.github.v3+json"}
-        Write-DebugLog "Response type: $($response.GetType().Name)"
-        Write-DebugLog "Response properties: $($response.PSObject.Properties.Name -join ', ')"
 
-        # Ensure tag_name exists (handle case sensitivity)
-        if ($response.tag_name) {
-            $versionTag = $response.tag_name
-            Write-DebugLog "Found tag_name: $versionTag"
-        } elseif ($response.TAG_NAME) {
-            $versionTag = $response.TAG_NAME
-            Write-DebugLog "Found TAG_NAME: $versionTag"
-        } elseif ($response.name) {
-            $versionTag = $response.name
-            Write-DebugLog "Found name: $versionTag"
-        } else {
-            Write-ColorOutput "Failed to extract version from response" "Red"
-            Write-DebugLog "ERROR: No version tag found in response"
-            return $null
+        # Check for GitHub token in environment or file
+        $githubToken = $env:GITHUB_TOKEN
+        if (-not $githubToken) {
+            $tokenFile = Join-Path $PSScriptRoot ".github_token"
+            if (Test-Path $tokenFile) {
+                $githubToken = Get-Content $tokenFile -Raw
+                $githubToken = $githubToken.Trim()
+            }
         }
 
-        Write-ColorOutput "$($Strings.LatestVersion)$versionTag" "Green"
-        return $response
+        # Prepare headers with optional token
+        $headers = @{"Accept"="application/vnd.github.v3+json"}
+        if ($githubToken) {
+            $headers["Authorization"] = "token $githubToken"
+            Write-DebugLog "Using GitHub token for authentication"
+        } else {
+            Write-DebugLog "No GitHub token found (rate limit: 60/hour)"
+        }
+
+        # Method 1: Try GitHub API first
+        try {
+            $apiUrl = "https://api.github.com/repos/$GITHUB_REPO/releases/latest"
+            Write-DebugLog "API URL: $apiUrl"
+            $response = Invoke-RestMethod -Uri $apiUrl -Headers $headers
+            Write-DebugLog "Response type: $($response.GetType().Name)"
+            Write-DebugLog "Response properties: $($response.PSObject.Properties.Name -join ', ')"
+
+            # Ensure tag_name exists (handle case sensitivity)
+            if ($response.tag_name) {
+                $versionTag = $response.tag_name
+                Write-DebugLog "Found tag_name: $versionTag"
+            } elseif ($response.TAG_NAME) {
+                $versionTag = $response.TAG_NAME
+                Write-DebugLog "Found TAG_NAME: $versionTag"
+            } elseif ($response.name) {
+                $versionTag = $response.name
+                Write-DebugLog "Found name: $versionTag"
+            } else {
+                Write-ColorOutput "Failed to extract version from response" "Red"
+                Write-DebugLog "ERROR: No version tag found in response"
+                return $null
+            }
+
+            Write-ColorOutput "$($Strings.LatestVersion)$versionTag" "Green"
+            return $response
+        } catch {
+            Write-DebugLog "API request failed: $_"
+            Write-ColorOutput "API rate limited, using alternative method..." "Yellow"
+
+            # Method 2: Parse releases page HTML if API fails (e.g., rate limit)
+            try {
+                $releasesUrl = "https://github.com/$GITHUB_REPO/releases"
+                Write-DebugLog "Fetching releases page: $releasesUrl"
+                $html = Invoke-WebRequest -Uri $releasesUrl -UseBasicParsing
+
+                # Extract tag name from HTML (look for /go-gost/gost/releases/tag/vX.X.X pattern)
+                if ($html.Content -match "/$GITHUB_REPO/releases/tag/(v[0-9]+\.[0-9]+\.[0-9]+)") {
+                    $versionTag = $matches[1].Trim()
+                    Write-DebugLog "Found tag from HTML: $versionTag"
+
+                    # Create a simple object with tag_name property
+                    $response = @{tag_name = $versionTag}
+                    Write-ColorOutput "$($Strings.LatestVersion)$versionTag" "Green"
+                    return $response
+                } else {
+                    Write-ColorOutput "Failed to parse version from releases page" "Red"
+                    Write-DebugLog "ERROR: No version tag found in HTML"
+                    return $null
+                }
+            } catch {
+                Write-ColorOutput "Failed to fetch releases page: $_" "Red"
+                Write-DebugLog "ERROR: $_"
+                return $null
+            }
+        }
     } catch {
         Write-ColorOutput "Failed to get version info: $_" "Red"
         Write-DebugLog "ERROR: $_"
@@ -632,8 +684,13 @@ function Install-Full {
     try {
         Write-DebugLog "Install-Full: Starting installation process"
         $versionInfo = Get-LatestGostVersion
-    Write-DebugLog "Install-Full: versionInfo type = $($versionInfo.GetType().Name)"
     if (-not $versionInfo) {
+        Write-DebugLog "Install-Full: versionInfo is null"
+        Write-ColorOutput "`nPress any key to return..." "Yellow"
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+        return $false
+    }
+    Write-DebugLog "Install-Full: versionInfo type = $($versionInfo.GetType().Name)"
         Write-ColorOutput "`nPress any key to return..." "Yellow"
         $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
         return $false
