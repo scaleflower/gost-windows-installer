@@ -1,0 +1,21 @@
+# GitHub token (contains sensitive credentials)
+.github_token
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# OMC temporary files
+.omc/
